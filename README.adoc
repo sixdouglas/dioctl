@@ -1,0 +1,5 @@
+= Dio CTL
+by Douglas SIX
+
+This is a go program to control the DIO devices at home.
+
