@@ -69,12 +69,12 @@
   version = "v1.4.0"
 
 [[projects]]
-  digest = "1:24467678275668054365ff6d066dff2c08908ae647f613147e639cf0f96501ee"
+  digest = "1:84122fb2c58e670a65a1925dfffed596df9e23f79be8fafbbf035f5da1745be5"
   name = "github.com/sixdouglas/suncalc"
   packages = ["."]
   pruneopts = "UT"
-  revision = "57cafdd3518bd9574d69d4b4fee97522bfafea92"
-  version = "1.0.1"
+  revision = "f30ff7e4f3586cbc35044feec6f395bd9d459d52"
+  version = "1.0.2"
 
 [[projects]]
   digest = "1:bb495ec276ab82d3dd08504bbc0594a65de8c3b22c6f2aaa92d05b73fbf3a82e"
@@ -137,11 +137,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3851a6d548ec5a808e396408f03a30b8d05ef4426db7ad8688f639b2d88b47bd"
+  digest = "1:6ed9319f79a63e30779042ef237f81770df4091866e43f84a643257384b0aefc"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "61b9204099cb1bebc803c9ffb9b2d3acd9d457d9"
+  revision = "8097e1b27ff5e40620836729a9584e91b094b062"
 
 [[projects]]
   digest = "1:1093f2eb4b344996604f7d8b29a16c5b22ab9e1b25652140d3fede39f640d5cd"

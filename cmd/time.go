@@ -41,14 +41,12 @@ var timeCmd = &cobra.Command{
 		} else {
 			latitude := viper.GetFloat64("latitude")
 			longitude := viper.GetFloat64("longitude")
-			fmt.Printf("Current latitude is %f\n", "latitude")
-			fmt.Printf("Current longitude is %f\n", "longitude")
+			fmt.Printf("Current latitude is %f \n", latitude)
+			fmt.Printf("Current longitude is %f \n", longitude)
 
 			times := suncalc.GetTimes(now, latitude, longitude)
 
-			for i := 0; i < len(times); i++ {
-				oneTime := times[i]
-
+			for _, oneTime := range times {
 				fmt.Printf("%-13s %d-%02d-%02d %02d:%02d:%02d\n", string(oneTime.MorningName),
 					oneTime.Time.Year(), oneTime.Time.Month(), oneTime.Time.Day(),
 					oneTime.Time.Hour(), oneTime.Time.Minute(), oneTime.Time.Second())
