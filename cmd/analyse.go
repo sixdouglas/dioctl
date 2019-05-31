@@ -18,27 +18,26 @@ import (
 	"fmt"
 	"github.com/sixdouglas/dioctl/config"
 	"github.com/sixdouglas/dioctl/gpio"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stianeikeland/go-rpio"
 	"log"
 	"strconv"
-
-	"github.com/spf13/cobra"
 )
 
-// offCmd represents the off command
-var offCmd = &cobra.Command{
-	Use:   "off [id]",
-	Short: "Switch off a device",
-	Long: `Switch off a device specified by its id.`,
+// analyseCmd represents the on command
+var analyseCmd = &cobra.Command{
+	Use:   "analyse [timeout]",
+	Short: "Listen on the air to help finding the signals timings.",
+	Long: `Listen on the air to help finding the signals timings.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		var elementId uint64
+		var timeout int64
 		var err error
 
-		elementId, err = strconv.ParseUint(args[0], 10, 64)
+		timeout, err = strconv.ParseInt(args[0], 10, 64)
 		if err != nil {
-			log.Fatalf("unable to decode device id, %v", err)
+			log.Fatalf("unable to decode the timeout, %v", err)
 		}
 
 		var configuration config.Configuration
@@ -46,47 +45,27 @@ var offCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("unable to decode into struct, %v", err)
 		}
-		var elementPos = -1
-		for i := 0 ; i < len(configuration.Elements); i++ {
-			key := configuration.Elements[i]
-			if key.Id == elementId {
-				elementPos = i
-				break
-			}
-		}
 
-		if elementPos == -1 {
-			log.Fatalf("No device with id %d defined. Are you sure you have added it?", elementId)
-		} else {
-			key := configuration.Elements[elementPos]
-			if !key.On {
-				log.Fatalf("The device with id %d is already off.", elementId)
-			} else {
-				idio := gpio.Dio{}
-				pin := rpio.Pin(configuration.EmitterPinId)
-				idio.SendCommand(pin, elementId, 0, false)
-				key.On = false
-				viper.Set("elements", configuration.Elements)
-				err = viper.WriteConfig()
-				if err != nil {
-					log.Fatalf("unable to save changes, %v", err)
-				}
-				fmt.Printf("OFF called for device: %d", elementId)
-			}
+		idio := gpio.Dio{}
+		pin := rpio.Pin(configuration.EmitterPinId)
+		err = idio.Analyse(pin, timeout)
+		if err != nil {
+			log.Fatalf("error reading code from pin %d, %v", configuration.ReceiverPinId, err)
 		}
+		fmt.Println("Analyse finished.")
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(offCmd)
+	rootCmd.AddCommand(analyseCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// offCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// analyseCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// offCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// analyseCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

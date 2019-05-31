@@ -21,7 +21,12 @@ const OffLowDuration = 310
 const NanoToMicro = 1000
 const MilliToMicro = 1000
 
-func PulseIn(rpio IRpio, pin rpio.Pin, state rpio.State, timeout int64) (int64, error) {
+type Dio struct {
+
+}
+
+func (*Dio) pulseIn(rpio *RpioObj, pin rpio.Pin, state rpio.State, timeout int64) (int64, error) {
+
 	// Open and map memory to access gpio, check for errors
 	if err := rpio.Open(); err != nil {
 		fmt.Println(err)
@@ -60,7 +65,18 @@ func PulseIn(rpio IRpio, pin rpio.Pin, state rpio.State, timeout int64) (int64, 
 	return end.Sub(start).Nanoseconds() / NanoToMicro, nil
 }
 
-func ReadCode(rpio IRpio, pin rpio.Pin) (uint64, error) {
+func (this *Dio) ReadCode(pin rpio.Pin) (uint64, error) {
+
+	rpioObj := RpioObj{}
+
+	// Open and map memory to access gpio, check for errors
+	if err := rpioObj.Open(); err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+
+	// Unmap gpio memory when done
+	defer rpioObj.Close()
 
 	i := 0
 	var t int64 = 0
@@ -78,7 +94,7 @@ func ReadCode(rpio IRpio, pin rpio.Pin) (uint64, error) {
 	//reset button row id
 	var recipient uint64 = 0
 
-	t, err := PulseIn(rpio, pin, Low, 1000000)
+	t, err := this.pulseIn(&rpioObj, pin, Low, 1000000)
 	if err != nil {
 		fmt.Println(err)
 		return 0, err
@@ -86,7 +102,7 @@ func ReadCode(rpio IRpio, pin rpio.Pin) (uint64, error) {
 
 	///lock 1
 	for t < 2700 || t > 2800 {
-		t, err = PulseIn(rpio, pin, Low, 1000000)
+		t, err = this.pulseIn(&rpioObj, pin, Low, 1000000)
 		if err != nil {
 			fmt.Println(err)
 			return 0, err
@@ -95,7 +111,7 @@ func ReadCode(rpio IRpio, pin rpio.Pin) (uint64, error) {
 
 	// Data
 	for i < 64 {
-		t, err = PulseIn(rpio, pin, Low, 1000000)
+		t, err = this.pulseIn(&rpioObj, pin, Low, 1000000)
 		if err != nil {
 			fmt.Println(err)
 			return 0, err
@@ -166,7 +182,7 @@ func ReadCode(rpio IRpio, pin rpio.Pin) (uint64, error) {
 	return sender, nil
 }
 
-func delayMicroseconds(delay int64) {
+func (*Dio) delayMicroseconds(delay int64) {
 	var start = time.Now()
 	var current time.Time
 
@@ -181,33 +197,33 @@ func delayMicroseconds(delay int64) {
 // Send basic heartbeat (from one state to another)
 //    1 = 310µs high then 1340µs low
 //    0 = 310µs high then 310µs low
-func sendBit(rpio IRpio, pin rpio.Pin, b bool) {
+func (this *Dio) sendBit(rpio *RpioObj, pin rpio.Pin, b bool) {
 	if b {
 		rpio.WritePin(pin, High)
-		delayMicroseconds(OnHighDuration) //275 originally, but tweaked.
+		this.delayMicroseconds(OnHighDuration) //275 originally, but tweaked.
 		rpio.WritePin(pin, Low)
-		delayMicroseconds(OnLowDuration) //1225 originally, but tweaked.
+		this.delayMicroseconds(OnLowDuration) //1225 originally, but tweaked.
 	} else {
 		rpio.WritePin(pin, High)
-		delayMicroseconds(OffHighDuration) //275 originally, but tweaked.
+		this.delayMicroseconds(OffHighDuration) //275 originally, but tweaked.
 		rpio.WritePin(pin, Low)
-		delayMicroseconds(OffLowDuration) //275 originally, but tweaked.
+		this.delayMicroseconds(OffLowDuration) //275 originally, but tweaked.
 	}
 }
 
 // Compute 2^power, used for the conversion of decimal to binary
-func power2(power uint64) uint64 {
+func (*Dio) power2(power uint64) uint64 {
 	return uint64(math.Pow(2, float64(power)))
 }
 
 // Convert a number to binary for the sender
-func itob(integer uint64, length uint64) []bool {
+func (this *Dio) itob(integer uint64, length uint64) []bool {
 	var bit = make([]bool, length)
 	var i uint64
 	const one uint64 = 1
 	for i = 0; i < length; i++ {
-		if (integer / power2(length - one - i)) == one {
-			integer -= power2(length - one - i);
+		if (integer / this.power2(length - one - i)) == one {
+			integer -= this.power2(length - one - i);
 			bit[i] = true
 		} else {
 			bit[i] = false
@@ -218,36 +234,36 @@ func itob(integer uint64, length uint64) []bool {
 
 // Send a pulse defined as: 0 =01 et 1 =10
 // This is Manchester Coding, to avoid errors
-func sendPair(rpio IRpio, pin rpio.Pin, b bool) {
-	sendBit(rpio, pin, b)
-	sendBit(rpio, pin, !b)
+func (this *Dio) sendPair(rpio *RpioObj, pin rpio.Pin, b bool) {
+	this.sendBit(rpio, pin, b)
+	this.sendBit(rpio, pin, !b)
 }
 
 // Signal sending function
-func transmit(rpio IRpio, pin rpio.Pin, blnOn bool, sender []bool, interrupter []bool) {
+func (this *Dio) transmit(rpio *RpioObj, pin rpio.Pin, blnOn bool, sender []bool, interrupter []bool) {
 	var i int
 
 	// Lock Sequence to wake the receiver
 	rpio.WritePin(pin, High)
-	delayMicroseconds(DurationBetweenTwoLocks) // just pure noise before starting to reset receiver delays
+	this.delayMicroseconds(DurationBetweenTwoLocks) // just pure noise before starting to reset receiver delays
 	rpio.WritePin(pin, Low)
-	delayMicroseconds(FirstLockDuration)       // first lock of 9900µs
+	this.delayMicroseconds(FirstLockDuration)       // first lock of 9900µs
 	rpio.WritePin(pin, High)                   // high again
-	delayMicroseconds(DurationBetweenTwoLocks) // wait 275µs between two locks
+	this.delayMicroseconds(DurationBetweenTwoLocks) // wait 275µs between two locks
 	rpio.WritePin(pin, Low)                    // second lock of 2675µs
-	delayMicroseconds(SecondLockDuration)
+	this.delayMicroseconds(SecondLockDuration)
 	rpio.WritePin(pin, High) // Back to High position to end the lock
 
 	// Send sender code (for example 272946 = 1000010101000110010 in binary)
 	for i = 0; i < len(sender); i++ {
-		sendPair(rpio, pin, sender[i])
+		this.sendPair(rpio, pin, sender[i])
 	}
 
 	// Send bit for a grouped command or not in our case (26th bit)
-	sendPair(rpio, pin, false)
+	this.sendPair(rpio, pin, false)
 
 	// The actual command bit to tell if it has to be on or off (27th bit)
-	sendPair(rpio, pin, blnOn)
+	this.sendPair(rpio, pin, blnOn)
 
 	// Sending the last 4 bits, representing the switch code, here 0 (encode sur 4 bit donc 0000)
 	// nb: for official Chacon remote, switches are named like from 0 to X
@@ -255,51 +271,77 @@ func transmit(rpio IRpio, pin rpio.Pin, blnOn bool, sender []bool, interrupter [
 	// switch 2 = 1 (so 1000),
 	// switch 3 = 2 (si 0100) etc...
 	for i = 0; i < 4; i++ {
-		sendPair(rpio, pin, interrupter[i])
+		this.sendPair(rpio, pin, interrupter[i])
 	}
 
 	rpio.WritePin(pin, High)                   // coupure données, verrou
-	delayMicroseconds(DurationBetweenTwoLocks) // attendre 275µs
+	this.delayMicroseconds(DurationBetweenTwoLocks) // attendre 275µs
 	rpio.WritePin(pin, Low)                    // verrou 2 de 2675µs pour signaler la fermeture du signal
-	delayMicroseconds(SecondLockDuration)      // attendre 275µs
+	this.delayMicroseconds(SecondLockDuration)      // attendre 275µs
 	rpio.WritePin(pin, High)                   // coupure données, verrou
 }
 
-func SendCommand(rpio IRpio, pin rpio.Pin, senderId uint64, interrupterId uint64, on bool) {
-	sender := itob(senderId, 26)
-	interrupter := itob(interrupterId, 4)
+func (this *Dio) SendCommand(pin rpio.Pin, senderId uint64, interrupterId uint64, on bool) error {
 
-	rpio.PinMode(pin, Output)
+	rpioObj := RpioObj{}
+
+	// Open and map memory to access gpio, check for errors
+	if err := rpioObj.Open(); err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	// Unmap gpio memory when done
+	defer rpioObj.Close()
+
+	sender := this.itob(senderId, 26)
+	interrupter := this.itob(interrupterId, 4)
+
+	rpioObj.PinMode(pin, Output)
 
 	if on {
 		// send it 5 times to be sure
 		for i := 0; i < 5; i++ {
-			transmit(rpio, pin, true, sender, interrupter) // send ON
-			delayMicroseconds(10 * MilliToMicro) // wait 10 ms (otherwise socket ignores us)
+			this.transmit(&rpioObj, pin, true, sender, interrupter) // send ON
+			this.delayMicroseconds(10 * MilliToMicro)               // wait 10 ms (otherwise socket ignores us)
 		}
 
 	} else {
 		for i := 0; i < 5; i++ {
-			transmit(rpio, pin, false, sender, interrupter) // send OFF
-			delayMicroseconds(10 * MilliToMicro) // wait 10 ms (otherwise socket ignores us)
+			this.transmit(&rpioObj, pin, false, sender, interrupter) // send OFF
+			this.delayMicroseconds(10 * MilliToMicro)                // wait 10 ms (otherwise socket ignores us)
 		}
 	}
+
+	return nil
 }
 
 
-func Analyse(irpio IRpio, pin rpio.Pin, delay int64) {
+func (*Dio) Analyse(pin rpio.Pin, delay int64) error {
+
+	rpioObj := RpioObj{}
+
+	// Open and map memory to access gpio, check for errors
+	if err := rpioObj.Open(); err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	// Unmap gpio memory when done
+	defer rpioObj.Close()
+
 	var startTime = time.Now()
 	var previousTime = startTime
 	var currentTime = previousTime
 	var times = make([]int64, 1000)
-	var initialState = rpio.ReadPin(pin)
+	var initialState = rpioObj.ReadPin(pin)
 	var previousState = initialState
 	var currentState = initialState
 
 	var timeDiff int64
 	for i := 0; i < len(times) ; i++ {
 		for ; ; {
-			currentState = rpio.ReadPin(pin)
+			currentState = rpioObj.ReadPin(pin)
 			if currentState != previousState {
 				currentTime = time.Now()
 				timeDiff = currentTime.Sub(previousTime).Nanoseconds()
@@ -331,4 +373,5 @@ func Analyse(irpio IRpio, pin rpio.Pin, delay int64) {
 	}
 	fmt.Println("  +----------+-------+---------------------+")
 
+	return nil
 }

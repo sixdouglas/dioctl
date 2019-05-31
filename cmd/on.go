@@ -62,10 +62,9 @@ var onCmd = &cobra.Command{
 			if key.On {
 				log.Fatalf("The device with id %d is already on.", elementId)
 			} else {
-				idio := gpio.DioObj{}
-				irpio := gpio.RpioObj{}
+				idio := gpio.Dio{}
 				pin := rpio.Pin(configuration.EmitterPinId)
-				idio.SendCommand(irpio, pin, elementId, 0, true)
+				idio.SendCommand(pin, elementId, 0, true)
 				key.On = true
 				viper.Set("elements", configuration.Elements)
 				err = viper.WriteConfig()
