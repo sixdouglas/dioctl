@@ -317,7 +317,7 @@ func (this *Dio) SendCommand(pin rpio.Pin, senderId uint64, interrupterId uint64
 }
 
 
-func (*Dio) Analyse(pin rpio.Pin, delay int64) error {
+func (this *Dio) Analyse(pin rpio.Pin, delay int64) error {
 
 	rpioObj := RpioObj{}
 
@@ -330,48 +330,86 @@ func (*Dio) Analyse(pin rpio.Pin, delay int64) error {
 	// Unmap gpio memory when done
 	defer rpioObj.Close()
 
+	//var startTime = time.Now()
+	//var previousTime = startTime
+	//var currentTime = previousTime
+	//var times = make([]int64, 1000)
+	var initialState= rpioObj.ReadPin(pin)
+	//var previousState = initialState
+	var currentState= initialState
+
+	respond := make(chan []int64, 1)
+	go this.listen(respond, &rpioObj, pin)
+
+	//var timeDiff int64
+	//for i := 0; i < len(times) ; i++ {
+	//	for ; ; {
+	//		currentState = rpioObj.ReadPin(pin)
+	//		if currentState != previousState {
+	//			currentTime = time.Now()
+	//			timeDiff = currentTime.Sub(previousTime).Nanoseconds()
+	//			times[i] = timeDiff
+	//			previousState = currentState
+	//			previousTime = currentTime
+	//			break
+	//		}
+	//	}
+	//	if timeDiff / NanoToMicro >= delay {
+	//		break
+	//	}
+	//}
+
+	select {
+	case times := <-respond:
+
+		fmt.Println("Here is a list of all elements currently defined and their status")
+		fmt.Println("")
+		fmt.Println("  +----------+-------+------------+")
+		fmt.Println("  |    i     | STATE |    TIME    |")
+		fmt.Println("  +----------+-------+------------+")
+		currentState = initialState
+		for i := 0; i < len(times); i++ {
+
+			fmt.Printf("  | %4d | %8d | %10d |\n", i, currentState, times[i]/NanoToMicro)
+			if currentState == rpio.Low {
+				currentState = rpio.High
+			} else {
+				currentState = rpio.Low
+			}
+		}
+		fmt.Println("  +----------+-------+---------------------+")
+	case <-time.After(5 * time.Second):
+		fmt.Println("A timeout occurred for analysis")
+	}
+
+	return nil
+}
+
+func (*Dio) listen(returnTimes chan<- []int64, rpioObj *RpioObj, pin rpio.Pin) {
+
+	var times = make([]int64, 1000)
 	var startTime = time.Now()
 	var previousTime = startTime
 	var currentTime = previousTime
-	var times = make([]int64, 1000)
 	var initialState = rpioObj.ReadPin(pin)
 	var previousState = initialState
 	var currentState = initialState
-
 	var timeDiff int64
-	for i := 0; i < len(times) ; i++ {
-		for ; ; {
-			currentState = rpioObj.ReadPin(pin)
-			if currentState != previousState {
-				currentTime = time.Now()
-				timeDiff = currentTime.Sub(previousTime).Nanoseconds()
-				times[i] = timeDiff
-				previousState = currentState
-				previousTime = currentTime
+	i := 0
+	for ; ; {
+		currentState = rpioObj.ReadPin(pin)
+		if currentState != previousState {
+			currentTime = time.Now()
+			timeDiff = currentTime.Sub(previousTime).Nanoseconds()
+			times[i] = timeDiff
+			previousState = currentState
+			previousTime = currentTime
+			i++
+			if i == len(times){
 				break
 			}
 		}
-		if timeDiff / NanoToMicro >= delay {
-			break
-		}
 	}
 
-	fmt.Println("Here is a list of all elements currently defined and their status")
-	fmt.Println("")
-	fmt.Println("  +----------+-------+------------+")
-	fmt.Println("  |    i     | STATE |    TIME    |")
-	fmt.Println("  +----------+-------+------------+")
-	currentState = initialState
-	for i := 0 ; i < len(times); i++ {
-
-		fmt.Printf("  | %4d | %8d | %10d |\n", i, currentState, times[i] / NanoToMicro)
-		if currentState == rpio.Low {
-			currentState = rpio.High
-		} else {
-			currentState = rpio.Low
-		}
-	}
-	fmt.Println("  +----------+-------+---------------------+")
-
-	return nil
+	returnTimes <- times
 }
