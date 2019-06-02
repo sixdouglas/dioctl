@@ -317,7 +317,7 @@ func (this *Dio) SendCommand(pin rpio.Pin, senderId uint64, interrupterId uint64
 }
 
 
-func (this *Dio) Analyse(pin rpio.Pin, delay int64) error {
+func (this *Dio) Analyse(pin rpio.Pin, delay time.Duration) error {
 
 	rpioObj := RpioObj{}
 
@@ -378,7 +378,7 @@ func (this *Dio) Analyse(pin rpio.Pin, delay int64) error {
 			}
 		}
 		fmt.Println("  +----------+-------+---------------------+")
-	case <-time.After(5 * time.Second):
+	case <-time.After(delay):
 		fmt.Println("A timeout occurred for analysis")
 	}
 

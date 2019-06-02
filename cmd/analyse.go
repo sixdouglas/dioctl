@@ -22,20 +22,21 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stianeikeland/go-rpio"
 	"log"
-	"strconv"
+	"time"
 )
 
 // analyseCmd represents the on command
 var analyseCmd = &cobra.Command{
-	Use:   "analyse [timeout]",
+	Use:   "analyse [timeout as Duration]",
 	Short: "Listen on the air to help finding the signals timings.",
-	Long: `Listen on the air to help finding the signals timings.`,
+	Long: `Listen on the air to help finding the signals timings. 
+The timout should follow the Duration parsing function: https://golang.org/pkg/time/#ParseDuration`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		var timeout int64
+		var timeout time.Duration
 		var err error
 
-		timeout, err = strconv.ParseInt(args[0], 10, 64)
+		timeout, err = time.ParseDuration(args[0])
 		if err != nil {
 			log.Fatalf("unable to decode the timeout, %v", err)
 		}
